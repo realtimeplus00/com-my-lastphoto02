@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0c16">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>오늘의 옛날</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌅%3C/text%3E%3C/svg%3E">
+<style>
+  /* ===== 디자인 토큰 ===== */
+  :root{
+    --bg:#0e0c16; --ink:#f4eef8; --mute:#9d94b3; --line:#2a2538;
+    --peach:#ffa67c; --rose:#ff5c8d; --violet:#7b5cff;
+    --sans:'Pretendard','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,sans-serif;
+    --serif:'Noto Serif KR','AppleMyungjo','Batang','Nanum Myeongjo',serif;
+    color-scheme:dark; box-sizing:border-box;
+  }
+  *,*::before,*::after{box-sizing:inherit;margin:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden}
+
+  /* ===== 메인 화면 ===== */
+  #home{
+    height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;
+    padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 38%, rgba(123,92,255,.28), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 20% 90%, rgba(255,92,141,.14), transparent 70%),
+      var(--bg);
+    text-align:center;
+  }
+  #home h1{font-family:var(--serif);font-weight:500;font-size:1.05rem;color:var(--mute);letter-spacing:.02em;line-height:1.7}
+
+  /* 소환 버튼: 이 앱의 단 하나의 큰 요소 */
+  #summon{
+    width:min(72vw,280px);aspect-ratio:1;border:0;border-radius:50%;cursor:pointer;
+    font-family:var(--serif);font-weight:700;font-size:1.55rem;line-height:1.4;color:#1a1020;
+    background:conic-gradient(from 210deg,var(--peach),var(--rose),var(--violet),var(--peach));
+    box-shadow:0 0 0 10px rgba(255,166,124,.08),0 0 60px rgba(255,92,141,.45);
+    animation:breathe 3.2s ease-in-out infinite;transition:transform .15s;
+  }
+  #summon:active{transform:scale(.94)}
+  #summon:focus-visible{outline:3px solid #fff;outline-offset:6px}
+  @keyframes breathe{50%{box-shadow:0 0 0 22px rgba(255,166,124,.03),0 0 90px rgba(123,92,255,.55)}}
+
+  #status{font-size:.85rem;color:var(--mute);min-height:1.3em;line-height:1.5}
+  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .chip{font:500 .9rem var(--sans);color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:999px;padding:11px 18px;cursor:pointer}
+  .chip:active{background:var(--line)}
+  .chip:focus-visible{outline:2px solid var(--peach);outline-offset:2px}
+
+  details{width:min(100%,340px);font-size:.85rem;color:var(--mute)}
+  summary{cursor:pointer;padding:6px;list-style:none}
+  summary::-webkit-details-marker{display:none}
+  .set{display:flex;flex-direction:column;gap:10px;padding:12px 0;align-items:stretch}
+  .set label{display:flex;flex-direction:column;gap:4px;text-align:left}
+  .set input{background:#17141f;border:1px solid var(--line);border-radius:10px;color:var(--ink);font:inherit;padding:10px;width:100%}
+
+  /* ===== 스토리 뷰어 ===== */
+  #viewer{position:fixed;inset:0;z-index:10;background:#000;display:none;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+  #viewer.open{display:block}
+  .layer{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .7s ease;pointer-events:none}
+  .layer.on{opacity:1;animation:kb 3.7s linear forwards}
+  @keyframes kb{from{transform:scale(1)}to{transform:scale(1.07)}}
+  #viewer.paused .layer{animation-play-state:paused}
+  #shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,rgba(0,0,0,.55),transparent 22%,transparent 50%,rgba(0,0,0,.82))}
+
+  #bars{position:absolute;left:0;right:0;top:0;display:flex;gap:4px;padding:calc(10px + env(safe-area-inset-top,0px)) 12px 0}
+  .bar{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.3);overflow:hidden}
+  .fill{height:100%;background:#fff;transform:scaleX(0);transform-origin:left}
+
+  #close{position:absolute;right:8px;top:calc(22px + env(safe-area-inset-top,0px));width:44px;height:44px;border:0;border-radius:50%;background:transparent;color:#fff;font-size:1.6rem;cursor:pointer}
+  #pausedTag{position:absolute;left:50%;top:calc(30px + env(safe-area-inset-top,0px));transform:translateX(-50%);font-size:.8rem;background:rgba(0,0,0,.5);padding:4px 12px;border-radius:999px;opacity:0;transition:opacity .2s}
+  #viewer.paused #pausedTag{opacity:1}
+
+  #caption{position:absolute;left:0;right:0;bottom:0;padding:0 26px calc(44px + env(safe-area-inset-bottom,0px));pointer-events:none}
+  #caption .date{font-size:.9rem;color:rgba(255,255,255,.8)}
+  #caption .big{font-family:var(--serif);font-weight:700;font-size:clamp(1.7rem,7.5vw,2.4rem);line-height:1.3;margin:6px 0 10px;text-shadow:0 2px 18px rgba(0,0,0,.6)}
+  #caption .sub{font-family:var(--serif);font-size:.98rem;color:rgba(255,255,255,.82);line-height:1.6}
+  #caption.swap{animation:rise .8s ease both}
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+  #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#241f33;color:var(--ink);font-size:.85rem;padding:10px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:opacity .3s;z-index:20;max-width:90vw;text-align:center;line-height:1.5}
+  #toast.show{opacity:1}
+
+  @media (prefers-reduced-motion:reduce){#summon{animation:none}.layer.on{animation:none}}
+</style>
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="오늘의 옛날">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#7c3aed">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <script>
+    if('serviceWorker' in navigator){
+      window.addEventListener('load',()=>{
+        navigator.serviceWorker.register('./service-worker.js');
+      });
+    }
+    window.addEventListener('beforeinstallprompt',e=>{
+      e.preventDefault();
+      window._pwaE=e;
+      var b=document.createElement('div');
+      b.style='position:fixed;bottom:0;left:0;right:0;background:#7c3aed;color:#fff;padding:18px;text-align:center;z-index:9999;font-size:15px;font-weight:bold;cursor:pointer;font-family:sans-serif;';
+      b.innerHTML='📲 홈화면에 앱 추가하기 · Add to Home Screen';
+      b.onclick=async function(){window._pwaE.prompt();var r=await window._pwaE.userChoice;if(r.outcome==='accepted')b.remove();};
+      document.body.appendChild(b);
+    });
+  </script>
+</head>
+<body>
+
+<!-- 메인 화면 -->
+<main id="home">
+  <h1>잊고 지낸 오래전 어느 날,<br>오늘 다시 꺼내볼까요</h1>
+  <button id="summon" type="button">오늘의<br>옛날 소환</button>
+  <p id="status">처음 한 번, 갤러리 사진을 가져와 주세요</p>
+
+  <div class="row">
+    <button class="chip" id="pick" type="button">📥 갤러리 가져오기</button>
+    <button class="chip" id="pickAll" type="button">📁 파일 앱으로 많이 가져오기</button>
+  </div>
+  <input type="file" id="file" accept="image/*" multiple hidden>
+  <input type="file" id="fileAll" multiple hidden>
+
+  <details>
+    <summary>⚙ 설정</summary>
+    <div class="set">
+      <label>이만큼(년) 이상 지난 사진만<input id="yrs" type="number" min="0" step="1" value="3" inputmode="numeric"></label>
+      <button class="chip" id="wipe" type="button">가져온 사진 모두 지우기</button>
+    </div>
+  </details>
+</main>
+
+<!-- 풀스크린 스토리 뷰어 -->
+<section id="viewer" aria-label="옛날 사진 슬라이드">
+  <img class="layer" id="imgA" alt="">
+  <img class="layer" id="imgB" alt="">
+  <div id="shade"></div>
+  <div id="bars"></div>
+  <span id="pausedTag">일시정지</span>
+  <button id="close" type="button" aria-label="닫기">✕</button>
+  <div id="caption"></div>
+</section>
+<div id="toast" role="status"></div>
+
+<script>
+/* ============================================================
+ * 오늘의 옛날 — 단일 파일 클라이언트 앱 (서버·DB 없음, 위치 정보 불필요)
+ * 오래전에 찍은 사진을 랜덤으로 3초씩 보여줘요.
+ * ============================================================ */
+const $ = (id) => document.getElementById(id);
+const SLIDE_MS = 3000;   // 슬라이드 하나당 정확히 3초
+const MAX_SLIDES = 20;   // 한 번에 보여줄 최대 장수
+
+let deck = [];           // 이번에 재생할 사진 목록
+let busy = false;        // 소환 중복 클릭 방지
+let mem = [];            // IndexedDB를 못 쓰는 환경을 위한 메모리 보관본
+
+/* ---------- 토스트 알림 ---------- */
+let toastTimer;
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+/* ---------- 최소 EXIF 파서 (JPEG의 촬영 날짜만 읽음) ---------- */
+async function readExifDate(file){
+  try{
+    const v = new DataView(await file.slice(0, 256 * 1024).arrayBuffer());
+    if (v.getUint16(0) !== 0xFFD8) return null;          // JPEG가 아니면 건너뜀
+    let o = 2;
+    while (o < v.byteLength - 4){
+      const marker = v.getUint16(o), len = v.getUint16(o + 2);
+      if (marker === 0xFFE1 && v.getUint32(o + 4) === 0x45786966) return tiffDate(v, o + 10);
+      if ((marker & 0xFF00) !== 0xFF00) break;
+      o += 2 + len;
+    }
+  }catch(e){}
+  return null;
+}
+function tiffDate(v, t){
+  const le = v.getUint16(t) === 0x4949;                  // 엔디안 판별
+  const u16 = (p) => v.getUint16(p, le), u32 = (p) => v.getUint32(p, le);
+  const ifd = (off) => {                                 // IFD → { 태그: 값 위치 }
+    const m = {}, n = u16(off);
+    for (let i = 0; i < n; i++){
+      const e = off + 2 + i * 12, cnt = u32(e + 4);
+      m[u16(e)] = { cnt, off: cnt > 4 ? t + u32(e + 8) : e + 8, raw: e + 8 };
+    }
+    return m;
+  };
+  const ascii = (x) => { let s = ''; for (let i = 0; i < x.cnt - 1; i++) s += String.fromCharCode(v.getUint8(x.off + i)); return s; };
+  const toDate = (s) => { const m = s && s.match(/(\d{4}):(\d+):(\d+)/); return m && +m[1] > 1970 ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
+
+  const i0 = ifd(t + u32(t + 4));
+  if (i0[0x8769]){
+    const ex = ifd(t + u32(i0[0x8769].raw));
+    const d = toDate(ex[0x9003] && ascii(ex[0x9003])) || toDate(ex[0x9004] && ascii(ex[0x9004]));  // 촬영일 → 디지털화일
+    if (d) return d;
+  }
+  return toDate(i0[0x0132] && ascii(i0[0x0132]));        // 마지막으로 수정일
+}
+
+/* ---------- IndexedDB: 가져온 사진을 이 브라우저 안에 보관 ---------- */
+const DB_NAME = 'oldday-db', STORE = 'photos';
+function openDB(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(STORE, { keyPath: 'key' });
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+async function dbTx(mode, fn){
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, mode), out = fn(tx.objectStore(STORE));
+    tx.oncomplete = () => res(out && out.result); tx.onerror = () => rej(tx.error);
+  });
+}
+// IndexedDB가 막힌 환경(예: content:// 로 연 경우)에서는 이번 접속 동안만 메모리에 보관
+async function loadAll(){
+  try{ const a = await dbTx('readonly', (s) => s.getAll()); if (a.length) return a; }catch(e){}
+  return mem;
+}
+const savePhoto = async (rec) => { mem.push(rec); try{ await dbTx('readwrite', (s) => s.put(rec)); }catch(e){} };
+const wipeAll   = async () => { mem = []; try{ await dbTx('readwrite', (s) => s.clear()); }catch(e){} };
+
+/* ---------- 사진 축소 (보관 용량 절약: 긴 변 1080px JPEG) ---------- */
+async function shrink(file){
+  try{
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const k = Math.min(1, 1080 / Math.max(bmp.width, bmp.height));
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
+    cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+    if (bmp.close) bmp.close();
+    return await new Promise((r) => cv.toBlob(r, 'image/jpeg', .82));
+  }catch(e){ return null; }
+}
+
+/* ---------- 날짜 계산 ---------- */
+const yearsAgo = (d) => (Date.now() - d.getTime()) / (365.25 * 864e5);
+const fmtDate = (d) => d.toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
+function agoText(d){                                     // 예: "3년 8개월", "5년", "7개월"
+  const now = new Date();
+  let m = (now.getFullYear() - d.getFullYear()) * 12 + now.getMonth() - d.getMonth();
+  if (now.getDate() < d.getDate()) m--;
+  m = Math.max(m, 0);
+  const y = Math.floor(m / 12), r = m % 12;
+  if (!y) return `${r || 1}개월`;
+  return r ? `${y}년 ${r}개월` : `${y}년`;
+}
+function mood(y){
+  if (y < 3)  return '그리 멀지 않은 줄 알았는데, 벌써 이만큼 지났어요';
+  if (y < 6)  return '그때의 나는 지금과 얼마나 달랐을까요';
+  if (y < 10) return '잊고 있던 얼굴과 풍경이 돌아왔어요';
+  return '아주 오래된 하루가, 오늘 도착했어요';
+}
+
+/* ---------- 갤러리 가져오기 (처음 한 번만) ---------- */
+async function refreshStatus(){
+  const all = await loadAll();
+  if (!all.length){ $('status').textContent = '처음 한 번, 갤러리 사진을 가져와 주세요'; return; }
+  const yrs = parseFloat($('yrs').value) || 0;
+  const old = all.filter((p) => yearsAgo(p.date) >= yrs).length;
+  const oldest = new Date(Math.min(...all.map((p) => p.date.getTime())));
+  $('status').textContent = `${all.length}장 준비됨 · ${yrs}년 이상 된 사진 ${old}장 · 가장 오래된 건 ${oldest.getFullYear()}년`;
+}
+const isImg = (f) => f.type.startsWith('image/') || /\.(jpe?g|png|webp|gif)$/i.test(f.name);   // 동영상 등은 제외
+$('pick').onclick = () => $('file').click();         // 사진 선택 화면 (보통 한 번에 100장 안팎 제한)
+$('pickAll').onclick = () => $('fileAll').click();   // 파일 앱 화면 (장수 제한 없이 폴더째 전체 선택 가능)
+$('file').onchange = $('fileAll').onchange = async (e) => {
+  const files = [...e.target.files].filter(isImg);
+  if (!files.length){ e.target.value = ''; return toast('가져올 수 있는 사진이 없어요'); }
+  let ok = 0, skipped = 0, exifCnt = 0;
+  for (let i = 0; i < files.length; i++){
+    $('status').textContent = `가져오는 중… ${i + 1} / ${files.length}`;
+    const f = files[i];
+    const exifDate = await readExifDate(f);              // 축소하면 EXIF가 사라지므로 먼저 읽기
+    const blob = await shrink(f);
+    if (!blob){ skipped++; continue; }
+    if (exifDate) exifCnt++;
+    // 촬영일(EXIF)이 있으면 그것을, 없으면 파일 수정 시각을 사용
+    await savePhoto({ key: `${f.name}|${f.size}|${f.lastModified}`, blob, date: exifDate || new Date(f.lastModified) });
+    ok++;
+  }
+  e.target.value = '';
+  await refreshStatus();
+  toast(`${ok}장 가져옴 (촬영일 확인 ${exifCnt}장 · 파일 날짜 사용 ${ok - exifCnt}장)${skipped ? ` · 건너뜀 ${skipped}장` : ''}`);
+};
+$('wipe').onclick = async () => {
+  if (!confirm('가져온 사진을 모두 지울까요?')) return;
+  await wipeAll(); await refreshStatus(); toast('모두 지웠어요');
+};
+
+/* ---------- 설정 저장/복원 ---------- */
+try{ const v = localStorage.getItem('old_yrs'); if (v) $('yrs').value = v; }catch(e){}
+$('yrs').addEventListener('change', () => { try{ localStorage.setItem('old_yrs', $('yrs').value); }catch(e){} refreshStatus(); });
+
+/* ---------- 샘플 (가져온 사진이 없을 때 체험용) ---------- */
+function makeSamples(){
+  const cols = [['#ff9a62','#ff4f81'],['#6a5cff','#ff5c8d'],['#2bb4c9','#6a5cff'],['#e0a458','#a1456f'],['#ff7e5f','#3a3d98'],['#5fc7a4','#2b5fd9']];
+  return cols.map((c, i) => {
+    const y = 4 + i * 2;                                  // 4년~14년 전 샘플
+    const date = new Date(Date.now() - y * 365.25 * 864e5);
+    const cv = document.createElement('canvas'); cv.width = 720; cv.height = 1280;
+    const g = cv.getContext('2d'), grad = g.createLinearGradient(0, 0, 720, 1280);
+    grad.addColorStop(0, c[0]); grad.addColorStop(1, c[1]);
+    g.fillStyle = grad; g.fillRect(0, 0, 720, 1280);
+    g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,.9)';
+    g.font = '700 150px "Noto Serif KR",serif'; g.fillText(date.getFullYear() + '', 360, 600);
+    g.font = '400 36px "Noto Sans KR",sans-serif'; g.fillStyle = 'rgba(255,255,255,.65)'; g.fillText('SAMPLE', 360, 680);
+    return { url: cv.toDataURL('image/jpeg', .8), date };
+  });
+}
+
+/* ---------- 덱 만들기: 오래된 사진만 골라 랜덤으로 ---------- */
+function shuffle(a){                                     // Fisher-Yates 셔플
+  for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+async function buildDeck(){
+  const yrs = parseFloat($('yrs').value) || 0;
+  const all = await loadAll();
+  if (!all.length){ toast('가져온 사진이 없어 샘플로 보여드려요'); return shuffle(makeSamples()); }
+
+  let pool = all.filter((p) => yearsAgo(p.date) >= yrs);
+  if (!pool.length){                                      // 기준을 넘는 사진이 없으면 가장 오래된 절반으로 대체
+    pool = [...all].sort((a, b) => a.date - b.date).slice(0, Math.max(1, Math.ceil(all.length / 2)));
+    toast(`${yrs}년 이상 된 사진이 없어 가장 오래된 사진들로 보여드려요`);
+  }
+  return shuffle(pool).slice(0, MAX_SLIDES).map((p) => ({ ...p, url: URL.createObjectURL(p.blob), tmp: true }));
+}
+
+/* ---------- 스토리 뷰어 ---------- */
+const viewer = $('viewer'), layers = [$('imgA'), $('imgB')];
+let idx = 0, front = 0, elapsed = 0, paused = false, running = false, lastT = 0, raf = 0, fills = [];
+
+async function openViewer(){
+  if (busy) return; busy = true;
+  deck = await buildDeck();
+  busy = false;
+  $('bars').innerHTML = deck.map(() => '<div class="bar"><div class="fill"></div></div>').join('');
+  fills = [...document.querySelectorAll('.fill')];
+  layers.forEach((l) => { l.classList.remove('on'); l.removeAttribute('src'); });
+  viewer.classList.add('open'); viewer.classList.remove('paused');
+  paused = false; running = true; idx = 0; front = 0;
+  show(0, true);
+  lastT = performance.now(); raf = requestAnimationFrame(loop);
+}
+function closeViewer(){
+  deck.forEach((p) => p.tmp && URL.revokeObjectURL(p.url));
+  running = false; cancelAnimationFrame(raf);
+  viewer.classList.remove('open');
+}
+
+// i번째 사진 표시 (뒷 레이어에 로드 → 크로스페이드)
+function show(i, first){
+  idx = i; elapsed = 0;
+  fills.forEach((f, k) => f.style.transform = `scaleX(${k < i ? 1 : 0})`);
+  const p = deck[i], next = first ? 0 : 1 - front, img = layers[next];
+  const apply = () => {
+    layers[front].classList.remove('on');
+    img.classList.remove('on'); void img.offsetWidth;    // 애니메이션 재시작
+    img.classList.add('on'); front = next;
+    elapsed = 0;                                          // 이미지가 보이기 시작한 시점부터 3초 계산
+  };
+  img.onload = apply; img.src = p.url;
+  if (img.complete && img.naturalWidth) apply();
+
+  const cap = $('caption');
+  cap.innerHTML = `
+    <div class="date">${fmtDate(p.date)}</div>
+    <div class="big">${agoText(p.date)} 전의<br>어느 날</div>
+    <div class="sub">${mood(yearsAgo(p.date))}</div>`;
+  cap.classList.remove('swap'); void cap.offsetWidth; cap.classList.add('swap');
+}
+function go(i){
+  if (i < 0) i = 0;
+  if (i >= deck.length){ closeViewer(); toast('오늘의 옛날은 여기까지예요 🌅'); return; }
+  show(i);
+}
+
+// 프레임 루프: 일시정지 중에는 시간이 흐르지 않음
+function loop(t){
+  if (!running) return;
+  const dt = Math.min(t - lastT, 100); lastT = t;        // 탭 전환 시 시간 폭주 방지
+  if (!paused){
+    elapsed += dt;
+    fills[idx].style.transform = `scaleX(${Math.min(elapsed / SLIDE_MS, 1)})`;
+    if (elapsed >= SLIDE_MS) go(idx + 1);
+  }
+  if (running) raf = requestAnimationFrame(loop);
+}
+
+/* ---------- 인터랙션: 꾹 누르면 정지, 짧게 탭하면 좌우 이동 ---------- */
+let downAt = 0;
+viewer.addEventListener('pointerdown', (e) => {
+  if (e.target.id === 'close') return;
+  downAt = performance.now(); paused = true; viewer.classList.add('paused');
+});
+const release = (e, cancelled) => {
+  if (!downAt) return;
+  const held = performance.now() - downAt; downAt = 0;
+  paused = false; viewer.classList.remove('paused');
+  if (!cancelled && held < 250) go(e.clientX < innerWidth * .35 ? idx - 1 : idx + 1);   // 왼쪽 35%는 이전, 나머지는 다음
+};
+viewer.addEventListener('pointerup', (e) => release(e, false));
+viewer.addEventListener('pointercancel', (e) => release(e, true));
+viewer.addEventListener('contextmenu', (e) => e.preventDefault());
+$('close').onclick = (e) => { e.stopPropagation(); closeViewer(); };
+
+document.addEventListener('keydown', (e) => {            // 데스크톱용 키보드 조작
+  if (!viewer.classList.contains('open')) return;
+  if (e.key === 'ArrowRight') go(idx + 1);
+  else if (e.key === 'ArrowLeft') go(idx - 1);
+  else if (e.key === ' '){ e.preventDefault(); paused = !paused; viewer.classList.toggle('paused', paused); }
+  else if (e.key === 'Escape') closeViewer();
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden && running){ paused = true; viewer.classList.add('paused'); } });
+
+$('summon').onclick = openViewer;
+refreshStatus();
+</script>
+</body>
+</html>
